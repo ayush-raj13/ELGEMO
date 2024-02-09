@@ -20,6 +20,14 @@ io.on('connection', (socket: Socket) => {
     console.log("user disconnected");
     userManager.removeUser(socket.id);
   })
+  socket.on("close", () => {
+    console.log("user disconnected");
+    userManager.removeUser(socket.id);
+  })
+  socket.on("leave", () => {
+    // remove room
+    userManager.userLeft(socket.id);
+  })
 });
 
 server.listen(3000, () => {

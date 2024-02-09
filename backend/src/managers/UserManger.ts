@@ -29,9 +29,28 @@ export class UserManager {
 
     removeUser(socketId: string) {
         const user = this.users.find(x => x.socket.id === socketId);
+        if (user) {
+            const receivingUser = this.roomManager.userLeft(user);
+            if (receivingUser) {
+                this.queue.push(receivingUser.socket.id);
+            }
+            this.clearQueue();
+        }
         
         this.users = this.users.filter(x => x.socket.id !== socketId);
-        this.queue = this.queue.filter(x => x === socketId);
+        this.queue = this.queue.filter(x => x !== socketId);
+    }
+
+    userLeft(socketId: string) {
+        const user = this.users.find(x => x.socket.id === socketId);
+        if (user) {
+            const receivingUser = this.roomManager.userLeft(user);
+            this.queue.push(socketId);
+            if (receivingUser) {
+                this.queue.push(receivingUser.socket.id);
+            }
+            this.clearQueue();
+        }
     }
 
     clearQueue() {
@@ -41,7 +60,7 @@ export class UserManager {
             return;
         }
 
-        const id1 = this.queue.pop();
+        const id1 = this.queue.shift();
         const id2 = this.queue.pop();
         console.log("id is " + id1 + " " + id2);
         const user1 = this.users.find(x => x.socket.id === id1);

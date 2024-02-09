@@ -65,6 +65,26 @@ export class RoomManager {
         receivingUser.socket.emit("add-ice-candidate", ({candidate, type}));
     }
 
+    userLeft(user: User) {
+        var roomId : string | null = null;
+        for (let [key, value] of this.rooms.entries()) {
+            if (value.user1 === user || value.user2 === user) {
+                roomId = key;
+            }
+        }
+
+        if (roomId) {
+            const room = this.rooms.get(roomId);
+            if (room) {
+                const receivingUser = room.user1 === user ? room.user2: room.user1;
+                receivingUser.socket.emit("leave");
+                this.rooms.delete(roomId);
+                return receivingUser;
+            }
+        }
+        return null;
+    }
+
     generate() {
         return GLOBAL_ROOM_ID++;
     }

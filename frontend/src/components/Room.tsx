@@ -6,11 +6,13 @@ const URL = "http://localhost:3000";
 export const Room = ({
     name,
     localAudioTrack,
-    localVideoTrack
+    localVideoTrack,
+    setJoined
 }: {
     name: string,
     localAudioTrack: MediaStreamTrack | null,
     localVideoTrack: MediaStreamTrack | null,
+    setJoined: React.Dispatch<React.SetStateAction<boolean>>
 }) => {
     const [lobby, setLobby] = useState(true);
     const [socket, setSocket] = useState<null | Socket>(null);
@@ -21,6 +23,31 @@ export const Room = ({
     const [remoteMediaStream, setRemoteMediaStream] = useState<MediaStream | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
+
+    function handleLeave() {
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
+        setLobby(true)
+        sendingPc?.close();
+        setSendingPc(pc => {
+            if (pc) {
+                pc.onicecandidate = null;
+                pc.onnegotiationneeded = null;
+            }
+
+            return pc;
+        })
+        receivingPc?.close();
+        setReceivingPc(pc => {
+            if (pc) {
+                pc.onicecandidate = null;
+                pc.ontrack = null;
+            }
+
+            return pc;
+        })
+    }
 
     useEffect(() => {
         const socket = io(URL, {
@@ -158,6 +185,10 @@ export const Room = ({
                     return pc;
                 });
             }
+        });
+
+        socket.on("leave", () => {
+            handleLeave();
         })
 
         setSocket(socket)
@@ -177,6 +208,19 @@ export const Room = ({
         <video autoPlay width={400} height={400} ref={localVideoRef} />
         {lobby ? "Waiting to connect you to someone" : null}
         <video autoPlay width={400} height={400} ref={remoteVideoRef} />
+        <button onClick={() => {
+            if (socket) {
+                handleLeave();
+                socket.emit("leave");
+            }
+        }}>Skip</button>
+        <button onClick={() => {
+            if (socket) {
+                handleLeave();
+                socket.emit("close");
+                setJoined(false);
+            }
+        }}>Leave</button>
     </div>
 }
 

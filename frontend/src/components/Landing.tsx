@@ -28,10 +28,10 @@ export const Landing = () => {
     }
 
     useEffect(() => {
-        if (videoRef && videoRef.current) {
+        if (videoRef && videoRef.current && !joined) {
             getCam()
         }
-    }, [videoRef]);
+    }, [videoRef, joined]);
 
     if (!joined) {
             
@@ -47,5 +47,5 @@ export const Landing = () => {
         </div>
     }
 
-    return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack} />
+    return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack} setJoined={setJoined} />
 }
