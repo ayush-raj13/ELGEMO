@@ -35,11 +35,12 @@ export class RoomManager {
         if (!room) {
             return;
         }
-        const receivingUser = room.user1.socket.id === senderSocketid ? room.user2: room.user1;
+        const [sendingUser, receivingUser] = room.user1.socket.id === senderSocketid ? [room.user1, room.user2]: [room.user2, room.user1];
         // Server sends an event "offer" to user2 with sdp of user1 and roomId
         receivingUser?.socket.emit("offer", {
             sdp,
-            roomId
+            roomId,
+            partnerName: sendingUser.name
         })
     }
     
