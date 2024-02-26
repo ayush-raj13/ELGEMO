@@ -66,7 +66,7 @@ export const Room = ({
       ); // Replace with your WebSocket server URL
   
       // Function to handle messages
-      const handleMessage = async (event) => {
+      const handleMessage = async (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         console.log("Received message:", data);
         if (data.type === "send-offer") {
