@@ -46,7 +46,8 @@ export const Room = ({
             }
 
             return pc;
-        })
+        });
+        setSendingPc(null);
         receivingPc?.close();
         setReceivingPc(pc => {
             if (pc) {
@@ -55,7 +56,8 @@ export const Room = ({
             }
 
             return pc;
-        })
+        });
+        setReceivingPc(null);
     }
 
     useEffect(() => {
@@ -165,11 +167,9 @@ export const Room = ({
                 }
                 const intervalId = setInterval(() => {
                     if (pc) {
-                        pc?.addIceCandidate(candidate)
-                        return pc;
-                    } else {
-                        //stop interval
+                        pc?.addIceCandidate(candidate);
                         clearInterval(intervalId);
+                        return pc;
                     }
                 }, 1000);
                 return pc;
@@ -181,10 +181,9 @@ export const Room = ({
                 }
                 const intervalId = setTimeout(() => {
                     if (pc) {
-                        pc?.addIceCandidate(candidate)
-                        return pc;
-                    } else {
+                        pc?.addIceCandidate(candidate);
                         clearInterval(intervalId);
+                        return pc;
                     }
                 }, 1000);
                 return pc;
