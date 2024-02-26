@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Socket, io } from "socket.io-client";
 import { Navbar } from "./Navbar";
+
+const URL = "http://localhost:3000";
 
 export const Room = ({
     name,
@@ -19,7 +22,7 @@ export const Room = ({
     toggleDarkMode: () => void
 }) => {
     const [lobby, setLobby] = useState(true);
-    const [socket, setSocket] = useState<null | WebSocket>(null);
+    const [socket, setSocket] = useState<null | Socket>(null);
     const [sendingPc, setSendingPc] = useState<null | RTCPeerConnection>(null);
     const [receivingPc, setReceivingPc] = useState<null | RTCPeerConnection>(null);
     const [remoteVideoTrack, setRemoteVideoTrack] = useState<MediaStreamTrack | null>(null);
@@ -59,149 +62,161 @@ export const Room = ({
     }
 
     useEffect(() => {
-      const socket = new WebSocket(
-        "wss://ccme03ln92.execute-api.eu-north-1.amazonaws.com/production/",
-      ); // Replace with your WebSocket server URL
-  
-      // Function to handle messages
-      const handleMessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log("Received message:", data);
-        if (data.type === "send-offer") {
-          const {roomId} = data;
-          setLobby(false);
-          const pc = new RTCPeerConnection();
+        const socket = io(URL, {
+            query: {
+                "name": name
+            }
+        });
+        socket.on('send-offer', async ({roomId} : {roomId: string}) => {
+            console.log("sending offer");
+            setLobby(false);
+            const pc = new RTCPeerConnection();
 
-          if (localVideoTrack) {
-              pc.addTrack(localVideoTrack)
-          }
-          if (localAudioTrack) {
-              pc.addTrack(localAudioTrack)
-          }
+            if (localVideoTrack) {
+                console.error("added tack");
+                console.log(localVideoTrack)
+                pc.addTrack(localVideoTrack)
+            }
+            if (localAudioTrack) {
+                console.error("added tack");
+                console.log(localAudioTrack)
+                pc.addTrack(localAudioTrack)
+            }
 
-          pc.onicecandidate = (e) => {
-              if (e.candidate) {
-                  socket.send(JSON.stringify({ type: "add-ice-candidate", candidate: e.candidate, recipientType: "sender", roomId: roomId }));
-              }
-          }
-
-          pc.onnegotiationneeded = async () => {
-              const sdp = await pc.createOffer();
-              //@ts-expect-ignore
-              pc.setLocalDescription(sdp);
-              console.log("offer sent");
-              socket.send(JSON.stringify({ type: "offer", sdp, roomId: roomId }));
-          }
-          const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
-          setSendingDc(dc);
-          setSendingPc(pc);
-        } else if (data.type === "offer") {
-          console.log("offer received")
-          const {roomId, sdp: remoteSdp, partnerName} = data;
-          setPartnerName(partnerName);
-          setLobby(false);
-          const pc = new RTCPeerConnection();
-          
-          const stream = new MediaStream();
-          setRemoteMediaStream(stream)
-          if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = stream;
-          }
-          
-          pc.ontrack = (e) => {
-              const {track, type} = e;
-              if (type == 'audio') {
-                  setRemoteAudioTrack(track);
-                  // @ts-ignore
-                  remoteVideoRef.current.srcObject.addTrack(track)
-              } else {
-                  setRemoteVideoTrack(track);
-                  // @ts-ignore
-                  remoteVideoRef.current.srcObject.addTrack(track)
-              }
-              //@ts-ignore
-              remoteVideoRef.current.play();
-          }
-
-          pc.onicecandidate = (e) => {
-              if (!e.candidate) {
-                  return;
-              }
-              if (e.candidate) {
-                  socket.send(JSON.stringify({ type: "add-ice-candidate", candidate: e.candidate, recipientType: "receiver", roomId: roomId }));
-              }
-          }
-          const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
-          dc.onmessage = (e) => {
-              setChatMessages(prevMessages => [[partnerName, e.data], ...prevMessages]);
-          }
-          dc.onclose = function () { 
-              setChatMessages([]);
-            };
-
-          pc.setRemoteDescription(remoteSdp)
-          const sdp = await pc.createAnswer();
-          pc.setLocalDescription(sdp)
-          setReceivingDc(dc);
-          setReceivingPc(pc);
-
-          socket.send(JSON.stringify({ type: "answer", roomId, sdp }));
-          console.log("answer sent");
-        } else if (data.type === "answer") {
-          const {roomId, sdp: remoteSdp} = data;
-          setLobby(false);
-          setSendingPc(pc => {
-              pc?.setRemoteDescription(remoteSdp)
-              return pc;
-          });
-        } else if (data.type === "lobby") {
-          setLobby(true);
-        } else if (data.type === "add-ice-candidate") {
-          const {candidate, recipientType} = data;
-          if (recipientType == "sender") {
-              setReceivingPc(pc => {
-                if (!pc) {
-                  console.error("receicng pc nout found")
+            pc.onicecandidate = async (e) => {
+                console.log("receiving ice candidate locally");
+                if (e.candidate) {
+                   socket.emit("add-ice-candidate", {
+                    candidate: e.candidate,
+                    type: "sender",
+                    roomId
+                   })
                 }
-                setTimeout(() => {
+            }
+
+            pc.onnegotiationneeded = async () => {
+                console.log("on negotiation neeeded, sending offer");
+                const sdp = await pc.createOffer();
+                //@ts-expect-ignore
+                pc.setLocalDescription(sdp)
+                socket.emit("offer", {
+                    sdp,
+                    roomId
+                })
+            }
+            const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
+            setSendingDc(dc);
+            setSendingPc(pc);
+        });
+
+        socket.on("offer", async ({roomId, sdp: remoteSdp, partnerName}) => {
+            console.log("received offer");
+            setPartnerName(partnerName);
+            setLobby(false);
+            const pc = new RTCPeerConnection();
+            
+            const stream = new MediaStream();
+            setRemoteMediaStream(stream)
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = stream;
+            }
+            
+            pc.ontrack = (e) => {
+                alert("ontrack");
+                console.error("inside ontrack");
+                const {track, type} = e;
+                if (type == 'audio') {
+                    setRemoteAudioTrack(track);
+                    // @ts-ignore
+                    remoteVideoRef.current.srcObject.addTrack(track)
+                } else {
+                    setRemoteVideoTrack(track);
+                    // @ts-ignore
+                    remoteVideoRef.current.srcObject.addTrack(track)
+                }
+                //@ts-ignore
+                remoteVideoRef.current.play();
+            }
+
+            pc.onicecandidate = async (e) => {
+                if (!e.candidate) {
+                    return;
+                }
+                console.log("omn ice candidate on receiving seide");
+                if (e.candidate) {
+                   socket.emit("add-ice-candidate", {
+                    candidate: e.candidate,
+                    type: "receiver",
+                    roomId
+                   })
+                }
+            }
+            const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
+            console.log(partnerName);
+            dc.onmessage = (e) => {
+                setChatMessages(prevMessages => [[partnerName, e.data], ...prevMessages]);
+            }
+            dc.onclose = function () { 
+                setChatMessages([]);
+             };
+            
+            pc.setRemoteDescription(remoteSdp)
+            const sdp = await pc.createAnswer();
+            pc.setLocalDescription(sdp)
+            setReceivingDc(dc);
+            setReceivingPc(pc);
+
+            socket.emit("answer", {
+                roomId,
+                sdp: sdp
+            });
+        });
+
+        socket.on("answer", ({roomId, sdp: remoteSdp}) => {
+            setLobby(false);
+            setSendingPc(pc => {
+                pc?.setRemoteDescription(remoteSdp)
+                return pc;
+            });
+            console.log("loop closed");
+        })
+
+        socket.on("lobby", () => {
+            setLobby(true);
+        })
+
+        socket.on("add-ice-candidate", ({candidate, type}) => {
+            console.log("add ice candidate from remote");
+            console.log({candidate, type})
+            if (type == "sender") {
+                setReceivingPc(pc => {
+                    if (!pc) {
+                        console.error("receicng pc nout found")
+                    } else {
+                        console.error(pc.ontrack)
+                    }
                     pc?.addIceCandidate(candidate)
                     return pc;
-                }, 5000);
-                return pc;
-              });
-          } else {
-              setSendingPc(pc => {
-                if (!pc) {
-                  console.error("sending pc nout found")
-                }
-                setTimeout(() => {
+                });
+            } else {
+                setSendingPc(pc => {
+                    if (!pc) {
+                        console.error("sending pc nout found")
+                    } else {
+                        // console.error(pc.ontrack)
+                    }
                     pc?.addIceCandidate(candidate)
                     return pc;
-                }, 5000);
-                return pc;
-              });
-          }
-        } else if (data.type === "leave") {
-          handleLeave();
-        }
-      };
-  
-      // Listening for messages
-      socket.addEventListener("message", handleMessage);
-  
-      // Send the initial message after the WebSocket connection is established
-      socket.addEventListener("open", async () => {
-        socket.send(JSON.stringify({ type: "initiate", name }));
-      });
+                });
+            }
+        });
 
-      setSocket(socket);
-  
-      return () => {
-        // Clean up the event listener when component unmounts
-        socket.removeEventListener("message", handleMessage);
-        socket.close(); // Close the WebSocket connection
-      };
-    }, [name]);
+        socket.on("leave", () => {
+            handleLeave();
+        })
+
+        setSocket(socket)
+    }, [name])
 
     useEffect(() => {
         if (localVideoRef.current) {
@@ -227,13 +242,13 @@ export const Room = ({
                             <button onClick={() => {
                                 if (socket) {
                                     handleLeave();
-                                    socket.send(JSON.stringify({ type: "leave" }));
+                                    socket.emit("leave");
                                 }
                             }} className={`px-4 py-2 ${darkMode ? 'bg-blue-500' : 'bg-blue-600'} text-white rounded-md mr-4 ${darkMode ? 'hover:bg-blue-600' : 'hover:bg-blue-700'}`}>Skip</button>
                             <button onClick={() => {
                                 if (socket) {
                                     handleLeave();
-                                    socket.send(JSON.stringify({ type: "close" }));
+                                    socket.emit("close");
                                     setJoined(false);
                                 }
                             }} className={`px-4 py-2 ${darkMode ? 'bg-red-500' : 'bg-red-600'} text-white rounded-md ${darkMode ? 'hover:bg-red-600' : 'hover:bg-red-700'}`}>Leave</button>
