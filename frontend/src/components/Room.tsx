@@ -163,10 +163,15 @@ export const Room = ({
                 if (!pc) {
                   console.error("receicng pc nout found")
                 }
-                setTimeout(() => {
-                    pc?.addIceCandidate(candidate)
-                    return pc;
-                }, 5000);
+                const intervalId = setInterval(() => {
+                    if (pc) {
+                        pc?.addIceCandidate(candidate)
+                        return pc;
+                    } else {
+                        //stop interval
+                        clearInterval(intervalId);
+                    }
+                }, 1000);
                 return pc;
               });
           } else {
@@ -174,10 +179,14 @@ export const Room = ({
                 if (!pc) {
                   console.error("sending pc nout found")
                 }
-                setTimeout(() => {
-                    pc?.addIceCandidate(candidate)
-                    return pc;
-                }, 5000);
+                const intervalId = setTimeout(() => {
+                    if (pc) {
+                        pc?.addIceCandidate(candidate)
+                        return pc;
+                    } else {
+                        clearInterval(intervalId);
+                    }
+                }, 1000);
                 return pc;
               });
           }
