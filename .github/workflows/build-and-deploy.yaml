@@ -31,7 +31,7 @@ jobs:
       working-directory: frontend
       run: |
         node --version
-        npm ci --production
+        npm install
 
     - name: Build Static Website
       working-directory: frontend
