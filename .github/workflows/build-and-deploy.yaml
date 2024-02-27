@@ -36,6 +36,8 @@ jobs:
     - name: Build Static Website
       working-directory: frontend
       run: npm run build
+      env:
+        CI: false
 
     - name: Copy files to the production website with the AWS CLI
       run: |
