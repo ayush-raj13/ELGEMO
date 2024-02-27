@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUCKET: react-app-elgemo
-      DIST: build
+      DIST: frontend/build
       REGION: eu-north-1
       DIST_ID: ETE3VJMMBLT3
 
