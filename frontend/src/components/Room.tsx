@@ -166,8 +166,9 @@ export const Room = ({
                   console.error("receicng pc nout found")
                 }
                 const intervalId = setInterval(() => {
-                    if (pc) {
-                        pc?.addIceCandidate(candidate);
+                    if (pc && pc.remoteDescription) {
+                        console.log("receiving pc found");
+                        pc.addIceCandidate(candidate);
                         clearInterval(intervalId);
                         return pc;
                     }
@@ -180,8 +181,9 @@ export const Room = ({
                   console.error("sending pc nout found")
                 }
                 const intervalId = setTimeout(() => {
-                    if (pc) {
-                        pc?.addIceCandidate(candidate);
+                    if (pc && pc.remoteDescription) {
+                        console.log("sending pc found");
+                        pc.addIceCandidate(candidate);
                         clearInterval(intervalId);
                         return pc;
                     }
@@ -251,7 +253,7 @@ export const Room = ({
                 {/* Right Part */}
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <div className=" w-1/2 text-left">You are now chatting with {partnerName}</div>
-                    <div className={`w-1/2 bg-${darkMode ? 'gray-700' : 'gray-100'} p-4 rounded-lg shadow-md h-[600px] overflow-y-auto flex flex-col-reverse`}>
+                    <div className={`w-1/2 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-lg shadow-md h-[600px] overflow-y-auto flex flex-col-reverse`}>
                         {chatMessages.map((message, index) => {
                             if (message[0] === "You") {
                                 return (
@@ -265,7 +267,7 @@ export const Room = ({
                             } else {
                                 return (
                                 <div key={index} className="flex flex-col items-end mb-4">
-                                    <div className={`bg-${darkMode ? 'gray-200' : 'white'} rounded-md p-2 text-gray-900 max-w-64 break-words min-w-16`}>
+                                    <div className={`${darkMode ? 'bg-gray-200' : 'bg-[#FFFBF5]'} rounded-md p-2 text-gray-900 max-w-64 break-words min-w-16`}>
                                         {message[1]}
                                     </div>
                                     <div className="text-xs">{message[0]}</div>
