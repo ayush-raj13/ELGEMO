@@ -82,6 +82,7 @@ export const Room = ({
           const {roomId} = data;
           setLobby(false);
           const pc = new RTCPeerConnection();
+					const dc = pc.createDataChannel("chat");
 
           if (localVideoTrack) {
               pc.addTrack(localVideoTrack)
@@ -95,7 +96,6 @@ export const Room = ({
 					.then(  ()  => waitForAllICE(pc))
 					.then(  ()  => socket.send(JSON.stringify({ type: "offer", sdp: pc.localDescription, roomId: roomId })))
               
-          const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
           setSendingDc(dc);
           setSendingPc(pc);
         } else if (data.type === "offer") {
@@ -134,11 +134,10 @@ export const Room = ({
                   socket.send(JSON.stringify({ type: "add-ice-candidate", candidate: e.candidate, recipientType: "receiver", roomId: roomId }));
               }
           }
-          const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
-          dc.onmessage = (e) => {
+          const onReceiveMessage = (e: MessageEvent) => {
               setChatMessages(prevMessages => [[partnerName, e.data], ...prevMessages]);
           }
-          dc.onclose = function () { 
+          const onReceiveChannelStateChange = () => { 
               setChatMessages([]);
             };
 
@@ -149,8 +148,14 @@ export const Room = ({
 					.then(offer => pc.setLocalDescription(offer))
 					.then(  ()  => waitForAllICE(pc))
 					.then(  ()  => socket.send(JSON.stringify({ type: "answer", roomId, sdp: pc.localDescription })))
-          setReceivingDc(dc);
-          setReceivingPc(pc);
+          
+					pc.ondatachannel = (event) => {
+						const dc = event.channel;
+						dc.onmessage = onReceiveMessage;
+						dc.onclose = onReceiveChannelStateChange;
+						setReceivingDc(dc);
+					}
+					setReceivingPc(pc);
         } else if (data.type === "answer") {
           const {roomId, sdp: remoteSdp} = data;
           setLobby(false);
