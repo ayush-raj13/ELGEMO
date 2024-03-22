@@ -65,7 +65,7 @@ export const Room = ({
         "wss://ccme03ln92.execute-api.eu-north-1.amazonaws.com/production/",
       ); // Replace with your WebSocket server URL
 
-		function waitForAllICE(pc) {
+		function waitForAllICE(pc: RTCPeerConnection) {
 			return new Promise((fufill, reject) => {
 				pc.onicecandidate = (iceEvent : RTCPeerConnectionIceEvent) => {
 					if (iceEvent.candidate === null) fufill("")
