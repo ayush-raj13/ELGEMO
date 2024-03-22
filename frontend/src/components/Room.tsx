@@ -250,7 +250,7 @@ export const Room = ({
                 </div>
                 {/* Right Part */}
                 <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className=" w-1/2 text-left">You are now chatting with {partnerName}</div>
+                    {!lobby && <div className=" w-1/2 text-left">You are now chatting with {partnerName}</div>}
                     <div className={`w-1/2 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-lg shadow-md h-[600px] overflow-y-auto flex flex-col-reverse`}>
                         {chatMessages.map((message, index) => {
                             if (message[0] === "You") {

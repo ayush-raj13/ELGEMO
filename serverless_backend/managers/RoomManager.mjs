@@ -63,7 +63,7 @@ async function deleteItemsWithPartitionKey(tableName, partitionKeyValue) {
 export class RoomManager {
 
     async createRoom(user1, user2) {
-        const roomId = this.generate().toString();
+        const roomId = (Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000).toString();
         
         await dynamo.send(
           new PutCommand({
