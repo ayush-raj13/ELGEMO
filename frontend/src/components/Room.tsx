@@ -64,6 +64,15 @@ export const Room = ({
       const socket = new WebSocket(
         "wss://ccme03ln92.execute-api.eu-north-1.amazonaws.com/production/",
       ); // Replace with your WebSocket server URL
+
+		function waitForAllICE(pc) {
+			return new Promise((fufill, reject) => {
+				pc.onicecandidate = (iceEvent : RTCPeerConnectionIceEvent) => {
+					if (iceEvent.candidate === null) fufill("")
+				}
+					setTimeout(() => reject("Waited a long time for ice candidates..."), 10000)
+			}) 
+		} 
   
       // Function to handle messages
       const handleMessage = async (event: MessageEvent) => {
@@ -81,19 +90,11 @@ export const Room = ({
               pc.addTrack(localAudioTrack)
           }
 
-          pc.onicecandidate = (e) => {
-              if (e.candidate) {
-                  socket.send(JSON.stringify({ type: "add-ice-candidate", candidate: e.candidate, recipientType: "sender", roomId: roomId }));
-              }
-          }
-
-          pc.onnegotiationneeded = async () => {
-              const sdp = await pc.createOffer();
-              //@ts-expect-ignore
-              pc.setLocalDescription(sdp);
-              console.log("offer sent");
-              socket.send(JSON.stringify({ type: "offer", sdp, roomId: roomId }));
-          }
+					pc.createOffer()
+					.then(offer => pc.setLocalDescription(offer))
+					.then(  ()  => waitForAllICE(pc))
+					.then(  ()  => socket.send(JSON.stringify({ type: "offer", sdp: pc.localDescription, roomId: roomId })))
+              
           const dc = pc.createDataChannel("chat", { negotiated: true, id: 0 });
           setSendingDc(dc);
           setSendingPc(pc);
@@ -142,18 +143,20 @@ export const Room = ({
             };
 
           pc.setRemoteDescription(remoteSdp)
-          const sdp = await pc.createAnswer();
-          pc.setLocalDescription(sdp)
+					.catch((error) => console.log("error adding remote description on sender side", error))
+
+					pc.createAnswer()
+					.then(offer => pc.setLocalDescription(offer))
+					.then(  ()  => waitForAllICE(pc))
+					.then(  ()  => socket.send(JSON.stringify({ type: "answer", roomId, sdp: pc.localDescription })))
           setReceivingDc(dc);
           setReceivingPc(pc);
-
-          socket.send(JSON.stringify({ type: "answer", roomId, sdp }));
-          console.log("answer sent");
         } else if (data.type === "answer") {
           const {roomId, sdp: remoteSdp} = data;
           setLobby(false);
           setSendingPc(pc => {
               pc?.setRemoteDescription(remoteSdp)
+							.catch((error) => console.log("error adding remote description on sender side", error))
               return pc;
           });
         } else if (data.type === "lobby") {
@@ -165,14 +168,9 @@ export const Room = ({
                 if (!pc) {
                   console.error("receicng pc nout found")
                 }
-                const intervalId = setInterval(() => {
-                    if (pc && pc.remoteDescription) {
-                        console.log("receiving pc found");
-                        pc.addIceCandidate(candidate);
-                        clearInterval(intervalId);
-                        return pc;
-                    }
-                }, 1000);
+								console.log("adding ice to sender started");
+                pc?.addIceCandidate(candidate)
+								console.log("adding ice to sender completed");
                 return pc;
               });
           } else {
@@ -180,14 +178,9 @@ export const Room = ({
                 if (!pc) {
                   console.error("sending pc nout found")
                 }
-                const intervalId = setTimeout(() => {
-                    if (pc && pc.remoteDescription) {
-                        console.log("sending pc found");
-                        pc.addIceCandidate(candidate);
-                        clearInterval(intervalId);
-                        return pc;
-                    }
-                }, 1000);
+								console.log("adding ice to receiver started", pc?.remoteDescription);
+                pc?.addIceCandidate(candidate);
+								console.log("adding ice to receiver completed");
                 return pc;
               });
           }
@@ -243,7 +236,7 @@ export const Room = ({
                             <button onClick={() => {
                                 if (socket) {
                                     handleLeave();
-                                    socket.send(JSON.stringify({ type: "close" }));
+                                    socket.send(JSON.stringify({ type: "disconnect" }));
                                     setJoined(false);
                                 }
                             }} className={`px-4 py-2 ${darkMode ? 'bg-red-500' : 'bg-red-600'} text-white rounded-md ${darkMode ? 'hover:bg-red-600' : 'hover:bg-red-700'}`}>Leave</button>
